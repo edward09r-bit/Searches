@@ -19,6 +19,29 @@ That's it — no Docker, no database server to install, no terminal commands to 
 
 To stop the app, close the terminal window the script opened (or press `Ctrl+C` in it).
 
+## Accessing it from your phone
+
+The app runs only on the desktop/laptop where you started it — there's no
+cloud server. To open it on your phone too, both devices need to be on the
+**same Wi-Fi network**:
+
+1. On the computer running the app, find its local network IP address:
+   - macOS: System Settings → Wi-Fi → Details (or `ipconfig getifaddr en0` in Terminal)
+   - Windows: `ipconfig` in Command Prompt → look for "IPv4 Address"
+   - Linux: `hostname -I` in a terminal
+   - It'll look like `192.168.1.42` or `10.0.0.15`.
+2. On your phone's browser, go to `http://<that-ip>:3000` (e.g. `http://192.168.1.42:3000`).
+
+This works out of the box for the two most common home router subnets
+(`192.168.x.x` and `10.x.x.x`). If your network uses a different range
+(e.g. `172.16.x.x`), add it to the `allowedDevOrigins` array in
+`next.config.ts` and restart the app.
+
+Closing the laptop or stopping the script also stops the app for your phone —
+it isn't reachable once the host machine goes to sleep or disconnects from
+Wi-Fi. For access from outside your home network, you'd need to deploy the
+app to a hosting provider, which isn't set up in this version.
+
 ## Manual setup (if you'd rather run it by hand)
 
 ```bash
