@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: acq_user
+      POSTGRES_PASSWORD: acq_password
+      POSTGRES_DB: acquisition_intelligence
+    ports:
+      - "5432:5432"
+    volumes:
+      - acq_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  acq_postgres_data:

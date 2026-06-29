@@ -1,0 +1,279 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ListingStatus {
+  NEW
+  REVIEWING
+  WATCHLIST
+  PASSED
+  CLOSED
+  STALE
+}
+
+enum ScoreLabel {
+  STRONG_CANDIDATE
+  MAYBE
+  PASS
+}
+
+enum SourceHistoryAction {
+  EXTRACTED
+  RE_EXTRACTED
+  MANUAL_EDIT
+}
+
+model Listing {
+  id        String @id @default(cuid())
+  // Identity / source
+  businessName     String
+  source           String
+  sourceUrl        String?
+  sourceListingId  String?
+
+  // Headline financials
+  askingPrice  Float?
+  annualRevenue Float?
+  annualSde    Float?
+  annualEbitda Float?
+  sdeVerified  Boolean @default(false)
+
+  // Operating profile
+  employeeCount    Int?
+  locationCity     String?
+  locationState    String?
+  industry         String?
+  subIndustry      String?
+  leaseStatus      String?
+  reasonForSale    String?
+  yearsInBusiness  Int?
+
+  // Deal structure
+  ffeValue                  Float?
+  inventoryValue            Float?
+  downPaymentStated         Float?
+  financingAvailable        Boolean?
+  sellerNetWorthRequirement Float?
+  sellerLiquidityRequirement Float?
+  isFranchise               Boolean @default(false)
+  franchiseName             String?
+
+  // Buyer-fit inference
+  hasGmOrLeadOperator Boolean?
+  ownerHoursPerWeek   Int?
+
+  notes         String?
+  rawPastedText String?
+
+  currentStatus ListingStatus @default(NEW)
+
+  dateFirstSeen   DateTime @default(now())
+  dateLastUpdated DateTime @updatedAt
+
+  evaluations         Evaluation[]
+  memos               Memo[]
+  listingNotes        Note[]
+  statusHistory       StatusHistoryEntry[]
+  watchlistEntry      WatchlistEntry?
+  sourceHistory       SourceHistoryEntry[]
+
+  @@index([source, sourceListingId])
+  @@index([currentStatus])
+  @@index([locationState])
+}
+
+model Evaluation {
+  id        String  @id @default(cuid())
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  isCurrent Boolean @default(true)
+
+  inputsSnapshot Json
+
+  revenueMultiple Float?
+  sdeMultiple     Float?
+
+  rawSde            Float
+  sdeHaircutPct     Float
+  conservativeSde   Float
+
+  monthlyOperatingProfit Float
+  monthlyOpexEstimate    Float
+
+  sbaLoanAmount      Float
+  sbaRatePct         Float
+  sbaTermMonths      Int
+  sbaMonthlyPayment  Float
+  sbaAnnualDebtService Float
+  dscr               Float
+
+  ownerAnnualSalary       Float
+  monthlyOwnerSalary      Float
+  monthlyEstimatedDistributions Float
+  distributionsNegativeFlag Boolean @default(false)
+
+  filingStatus         String
+  stacksOnOtherIncome  Boolean
+  otherOrdinaryIncome  Float @default(0)
+
+  federalTaxAnnual Float
+  caTaxAnnual      Float
+  ficaAnnual       Float
+
+  baseAnnualTakeHome   Float
+  baseMonthlyTakeHome  Float
+  conservativeAnnualTakeHome  Float
+  conservativeMonthlyTakeHome Float
+  upsideAnnualTakeHome  Float
+  upsideMonthlyTakeHome Float
+
+  createdAt DateTime @default(now())
+
+  scoreResult ScoreResult?
+  memo        Memo?
+
+  @@index([listingId, isCurrent])
+}
+
+model ScoreResult {
+  id           String     @id @default(cuid())
+  evaluationId String     @unique
+  evaluation   Evaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+
+  dscrScore             Float
+  takeHomeScore         Float
+  semiAbsenteeScore     Float
+  staffDepthScore       Float
+  leaseStabilityScore   Float
+  industryQualityScore  Float
+  valuationMultipleScore Float
+  redFlagsScore         Float
+
+  rawWeightedTotal Float
+  finalScore       Float
+  label            ScoreLabel
+
+  hardRejectTriggered Boolean @default(false)
+  hardRejectReasons   Json
+  redFlags            Json
+
+  createdAt DateTime @default(now())
+}
+
+model Memo {
+  id           String     @id @default(cuid())
+  listingId    String
+  listing      Listing    @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  evaluationId String     @unique
+  evaluation   Evaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+
+  financialOverviewTable  Json
+  cashFlowModelTable      Json
+  sbaAssumptionsTable     Json
+  taxEstimateTable        Json
+  ownerPayStructureTable  Json
+  scenarioComparisonTable Json
+
+  businessOverview   String
+  fitNarrative       String
+  redFlagsNarrative  String
+  finalVerdict       String
+
+  createdAt DateTime @default(now())
+
+  @@index([listingId])
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([listingId])
+}
+
+model StatusHistoryEntry {
+  id         String        @id @default(cuid())
+  listingId  String
+  listing    Listing       @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  fromStatus ListingStatus
+  toStatus   ListingStatus
+  reason     String?
+  changedAt  DateTime      @default(now())
+
+  @@index([listingId])
+}
+
+model WatchlistEntry {
+  id        String   @id @default(cuid())
+  listingId String   @unique
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  addedAt   DateTime @default(now())
+  priority  Int      @default(0)
+}
+
+model SourceHistoryEntry {
+  id         String              @id @default(cuid())
+  listingId  String
+  listing    Listing             @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  action     SourceHistoryAction
+  fieldDiffs Json?
+  createdAt  DateTime            @default(now())
+
+  @@index([listingId])
+}
+
+model Settings {
+  id String @id @default("singleton")
+
+  buyerState                String  @default("CA")
+  targetTakeHomeMin         Float   @default(10000)
+  targetTakeHomeIdeal       Float   @default(15000)
+  semiAbsenteePreference    Boolean @default(true)
+  preferredIndustries       String[]
+
+  filingStatus        String  @default("single")
+  stacksOnOtherIncome  Boolean @default(false)
+  otherOrdinaryIncome  Float   @default(0)
+  taxYear              Int     @default(2025)
+
+  sbaRatePct          Float @default(9.75)
+  sbaTermMonths       Int   @default(120)
+  sbaDownPaymentPct   Float @default(10)
+
+  ownerSalaryDefault     Float @default(85000)
+  unverifiedSdeHaircutPct Float @default(12)
+
+  weightDscr             Float @default(25)
+  weightTakeHome         Float @default(25)
+  weightSemiAbsentee     Float @default(15)
+  weightStaffDepth       Float @default(10)
+  weightLeaseStability   Float @default(10)
+  weightIndustryQuality  Float @default(5)
+  weightValuationMultiple Float @default(5)
+  weightRedFlags         Float @default(5)
+
+  updatedAt DateTime @updatedAt
+}
+
+model TaxBracket {
+  id                 String @id @default(cuid())
+  jurisdiction       String
+  filingStatus       String
+  taxYear            Int
+  bracketOrder       Int
+  rate               Float
+  minIncome          Float
+  maxIncome          Float?
+  standardDeduction  Float
+
+  @@unique([jurisdiction, filingStatus, taxYear, bracketOrder])
+  @@index([jurisdiction, filingStatus, taxYear])
+}
