@@ -1,6 +1,13 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { runEvaluation } from "@/lib/actions/evaluation-actions";
+import { changeStatus } from "@/lib/actions/status-actions";
+import { WatchlistToggle } from "@/components/listings/WatchlistToggle";
+import { StatusHistoryTimeline } from "@/components/listings/StatusHistoryTimeline";
+import { NotesPanel } from "@/components/listings/NotesPanel";
+
+const STATUS_OPTIONS = ["NEW", "REVIEWING", "WATCHLIST", "PASSED", "CLOSED", "STALE"];
 
 // Next.js 16: `params` is a Promise with no synchronous-access fallback.
 export default async function ListingDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -13,6 +20,9 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
         include: { scoreResult: true },
         take: 1,
       },
+      statusHistory: { orderBy: { changedAt: "desc" } },
+      watchlistEntry: true,
+      listingNotes: { orderBy: { createdAt: "desc" } },
     },
   });
 
@@ -20,6 +30,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
 
   const evaluation = listing.evaluations[0] ?? null;
   const score = evaluation?.scoreResult ?? null;
+  const boundChangeStatus = changeStatus.bind(null, listing.id);
 
   const fmtMoney = (v: number | null) => (v != null ? `$${Math.round(v).toLocaleString()}` : "—");
   const fmtBool = (v: boolean | null) => (v === null ? "Unknown" : v ? "Yes" : "No");
@@ -39,6 +50,37 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
         {listing.industry ? ` · ${listing.industry}` : ""}
         {listing.subIndustry ? ` (${listing.subIndustry})` : ""}
       </p>
+
+      <div className="mt-4 flex flex-wrap items-end gap-3">
+        <form action={boundChangeStatus} className="flex items-end gap-2">
+          <div>
+            <label className="block text-xs font-medium text-zinc-600" htmlFor="toStatus">Status</label>
+            <select
+              id="toStatus"
+              name="toStatus"
+              defaultValue={listing.currentStatus}
+              className="mt-1 block rounded-md border border-zinc-300 px-2 py-1 text-sm"
+            >
+              {STATUS_OPTIONS.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-zinc-600" htmlFor="reason">Reason (optional)</label>
+            <input
+              id="reason"
+              name="reason"
+              className="mt-1 block rounded-md border border-zinc-300 px-2 py-1 text-sm"
+            />
+          </div>
+          <button type="submit" className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700">
+            Update status
+          </button>
+        </form>
+
+        <WatchlistToggle listingId={listing.id} isWatchlisted={listing.watchlistEntry != null} />
+      </div>
 
       <section className="mt-8">
         <h2 className="text-lg font-semibold">Headline financials</h2>
@@ -82,7 +124,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
 
       {listing.notes && (
         <section className="mt-8">
-          <h2 className="text-lg font-semibold">Notes</h2>
+          <h2 className="text-lg font-semibold">Source notes</h2>
           <p className="mt-2 whitespace-pre-wrap text-sm text-zinc-700">{listing.notes}</p>
         </section>
       )}
@@ -90,15 +132,22 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
       <section className="mt-10 border-t border-zinc-200 pt-8">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Financial evaluation</h2>
-          {listing.askingPrice && listing.askingPrice > 0 ? (
-            <form action={boundRunEvaluation}>
-              <button type="submit" className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white">
-                {evaluation ? "Re-run evaluation" : "Run evaluation"}
-              </button>
-            </form>
-          ) : (
-            <p className="text-sm text-zinc-400">Add an asking price to run an evaluation.</p>
-          )}
+          <div className="flex items-center gap-3">
+            {evaluation && (
+              <Link href={`/listings/${listing.id}/memo`} className="text-sm font-medium text-zinc-700 hover:underline">
+                View memo →
+              </Link>
+            )}
+            {listing.askingPrice && listing.askingPrice > 0 ? (
+              <form action={boundRunEvaluation}>
+                <button type="submit" className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white">
+                  {evaluation ? "Re-run evaluation" : "Run evaluation"}
+                </button>
+              </form>
+            ) : (
+              <p className="text-sm text-zinc-400">Add an asking price to run an evaluation.</p>
+            )}
+          </div>
         </div>
 
         {!evaluation && <p className="mt-4 text-sm text-zinc-400">No evaluation has been run for this listing yet.</p>}
@@ -175,6 +224,20 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
             )}
           </div>
         )}
+      </section>
+
+      <section className="mt-10 border-t border-zinc-200 pt-8">
+        <h2 className="text-lg font-semibold">Status history</h2>
+        <div className="mt-4">
+          <StatusHistoryTimeline entries={listing.statusHistory} />
+        </div>
+      </section>
+
+      <section className="mt-10 border-t border-zinc-200 pt-8">
+        <h2 className="text-lg font-semibold">Notes</h2>
+        <div className="mt-4">
+          <NotesPanel listingId={listing.id} notes={listing.listingNotes} />
+        </div>
       </section>
     </div>
   );

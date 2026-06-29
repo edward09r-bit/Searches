@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { createListing, type ListingFormState } from "@/lib/actions/listing-actions";
 import type { ExtractedListing } from "@/lib/extraction";
+import type { DuplicateMatch } from "@/lib/dedupe";
 
 const initialState: ListingFormState = { errors: {} };
 
@@ -24,13 +26,26 @@ function triSelectDefault(value: boolean | null | undefined): "unknown" | "true"
 type ListingFormProps = {
   initialValues?: ExtractedListing;
   rawPastedText?: string;
+  potentialDuplicate?: DuplicateMatch | null;
 };
 
-export function ListingForm({ initialValues: v, rawPastedText }: ListingFormProps) {
+export function ListingForm({ initialValues: v, rawPastedText, potentialDuplicate }: ListingFormProps) {
   const [state, formAction, pending] = useActionState(createListing, initialState);
+  const duplicate = state.potentialDuplicate ?? potentialDuplicate ?? null;
 
   return (
     <form action={formAction} className="mx-auto max-w-3xl space-y-8 pb-16">
+      {duplicate && (
+        <p className="rounded-md bg-amber-50 px-4 py-2 text-sm text-amber-800">
+          Possible duplicate ({duplicate.matchTier === "exact" ? "same source listing" : "similar name, same state"}):{" "}
+          <Link href={`/listings/${duplicate.listingId}`} className="font-medium underline">
+            {duplicate.businessName}
+          </Link>{" "}
+          already in the system (status {duplicate.currentStatus}). Review it before saving — this is never
+          auto-merged, so saving here always creates a separate listing.
+        </p>
+      )}
+
       <section className="space-y-4">
         <h2 className="text-lg font-semibold">Identity / Source</h2>
         <div className="grid grid-cols-2 gap-4">
@@ -271,13 +286,26 @@ export function ListingForm({ initialValues: v, rawPastedText }: ListingFormProp
 
       {state.message && <p className="text-sm text-red-600">{state.message}</p>}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-      >
-        {pending ? "Saving…" : "Save listing"}
-      </button>
+      <div className="flex gap-3">
+        <button
+          type="submit"
+          disabled={pending}
+          className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+        >
+          {pending ? "Saving…" : "Save listing"}
+        </button>
+        {duplicate && (
+          <button
+            type="submit"
+            name="confirmDuplicate"
+            value="true"
+            disabled={pending}
+            className="rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 disabled:opacity-50"
+          >
+            Save anyway (separate listing)
+          </button>
+        )}
+      </div>
     </form>
   );
 }

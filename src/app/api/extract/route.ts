@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { extractListingFromText } from "@/lib/extraction";
+import { findPotentialDuplicate } from "@/lib/dedupe";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
@@ -11,7 +12,13 @@ export async function POST(request: Request) {
 
   try {
     const extracted = await extractListingFromText(rawText);
-    return NextResponse.json({ extracted });
+    const potentialDuplicate = await findPotentialDuplicate({
+      source: extracted.source,
+      sourceListingId: extracted.sourceListingId,
+      businessName: extracted.businessName,
+      locationState: extracted.locationState,
+    });
+    return NextResponse.json({ extracted, potentialDuplicate });
   } catch (err) {
     console.error("Listing extraction failed:", err);
     return NextResponse.json(

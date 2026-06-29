@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { redirect } from "next/navigation";
 import { prisma } from "../prisma";
+import { findPotentialDuplicate, type DuplicateMatch } from "../dedupe";
 
 // FormData gives every field back as a string (or omits unchecked
 // checkboxes entirely) — these helpers normalize that into the
@@ -74,6 +75,7 @@ export type ListingFormValues = z.infer<typeof ListingFormSchema>;
 export type ListingFormState = {
   errors: Partial<Record<keyof ListingFormValues, string[]>>;
   message?: string;
+  potentialDuplicate?: DuplicateMatch | null;
 };
 
 export async function createListing(_prevState: ListingFormState, formData: FormData): Promise<ListingFormState> {
@@ -81,6 +83,24 @@ export async function createListing(_prevState: ListingFormState, formData: Form
 
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };
+  }
+
+  // A second checkpoint beyond the extraction-time dedupe banner — catches
+  // manually-entered listings and cases where the businessName/state changed
+  // after extraction. Never blocks outright: the "confirmDuplicate" flag
+  // (set by the form's "Save anyway" button) bypasses it once the user has
+  // seen the warning and decided to proceed.
+  if (formData.get("confirmDuplicate") !== "true") {
+    const duplicate = await findPotentialDuplicate({
+      source: parsed.data.source,
+      sourceListingId: parsed.data.sourceListingId,
+      businessName: parsed.data.businessName,
+      locationState: parsed.data.locationState,
+    });
+
+    if (duplicate) {
+      return { errors: {}, potentialDuplicate: duplicate };
+    }
   }
 
   const listing = await prisma.listing.create({

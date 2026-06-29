@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ListingForm } from "./ListingForm";
 import { PasteExtractForm } from "./PasteExtractForm";
 import type { ExtractedListing } from "@/lib/extraction";
+import type { DuplicateMatch } from "@/lib/dedupe";
 
 type Tab = "paste" | "manual";
 
@@ -14,13 +15,15 @@ export function ListingIntake() {
   const [tab, setTab] = useState<Tab>("paste");
   const [extracted, setExtracted] = useState<ExtractedListing | undefined>(undefined);
   const [rawPastedText, setRawPastedText] = useState<string | undefined>(undefined);
+  const [potentialDuplicate, setPotentialDuplicate] = useState<DuplicateMatch | null>(null);
   // Bumped whenever new extraction results arrive so ListingForm remounts
   // and its defaultValue-driven inputs pick up the new values.
   const [formKey, setFormKey] = useState(0);
 
-  function handleExtracted(data: ExtractedListing, rawText: string) {
+  function handleExtracted(data: ExtractedListing, rawText: string, duplicate: DuplicateMatch | null) {
     setExtracted(data);
     setRawPastedText(rawText);
+    setPotentialDuplicate(duplicate);
     setFormKey((k) => k + 1);
     setTab("manual");
   }
@@ -46,7 +49,7 @@ export function ListingIntake() {
               estimated — review every field below before saving.
             </p>
           )}
-          <ListingForm key={formKey} initialValues={extracted} rawPastedText={rawPastedText} />
+          <ListingForm key={formKey} initialValues={extracted} rawPastedText={rawPastedText} potentialDuplicate={potentialDuplicate} />
         </>
       )}
     </div>

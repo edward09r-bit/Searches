@@ -2,11 +2,16 @@
 
 import { useState } from "react";
 import type { ExtractedListing } from "@/lib/extraction";
+import type { DuplicateMatch } from "@/lib/dedupe";
 
 const textareaClass =
   "mt-1 block w-full rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus:border-zinc-500 focus:outline-none";
 
-export function PasteExtractForm({ onExtracted }: { onExtracted: (data: ExtractedListing, rawText: string) => void }) {
+type PasteExtractFormProps = {
+  onExtracted: (data: ExtractedListing, rawText: string, potentialDuplicate: DuplicateMatch | null) => void;
+};
+
+export function PasteExtractForm({ onExtracted }: PasteExtractFormProps) {
   const [rawText, setRawText] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +30,7 @@ export function PasteExtractForm({ onExtracted }: { onExtracted: (data: Extracte
         setError(json.error ?? "Extraction failed.");
         return;
       }
-      onExtracted(json.extracted, rawText);
+      onExtracted(json.extracted, rawText, json.potentialDuplicate ?? null);
     } catch {
       setError("Extraction failed — check your connection and try again.");
     } finally {
