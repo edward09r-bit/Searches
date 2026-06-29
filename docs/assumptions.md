@@ -103,6 +103,22 @@ reasonable, unlike the federal/CA bracket tables):
 These rates apply only to the salary portion under the S-corp assumption
 above; distributions carry no FICA or self-employment tax in this model.
 
+## Database: SQLite, not Postgres
+
+The app uses SQLite (`prisma/dev.db`, a single local file) instead of
+Postgres so it runs with zero external setup — no Docker, no database
+server to install or keep running. This is a deliberate simplicity tradeoff
+for a single-user, personal-use app; if this is ever extended to a hosted,
+multi-user deployment, swap `datasource db { provider }` back to
+`"postgresql"` (or another server-based engine) and point `DATABASE_URL` at
+a real server — SQLite doesn't handle concurrent writers well, which matters
+for hosting but not for one person evaluating listings locally.
+
+One schema consequence: `Settings.preferredIndustries` is stored as a JSON
+column (`Json`) rather than a native string list, since SQLite has no scalar
+list type. `getSettings()` in `src/lib/settings.ts` parses it back into a
+`string[]` so the rest of the app never deals with the raw JSON.
+
 ## Known sandbox-specific limitation (does not affect the user's own machine)
 
 In the development sandbox this app was built in, the Prisma CLI's binary
@@ -111,10 +127,8 @@ pre-flight check (`schema-engine` download, triggered by `generate`, `migrate`,
 specific to that sandbox's network setup. The real `prisma/schema.prisma` and
 `prisma/seed.ts` are correct and will work normally with the standard
 `npx prisma migrate dev` / `npx prisma db seed` / `npx prisma generate` flow on
-a normal machine or CI runner. As a sandbox-only workaround, the initial
-schema was applied directly via hand-written SQL
-(`prisma/migrations/20260629042752_init/migration.sql`, applied with `psql`)
-and seed data was inserted via equivalent raw SQL, so local development and
-testing could proceed without a generated Prisma Client. Once `prisma
-generate` succeeds in a normal environment, the standard CLI workflow takes
-over with no schema changes needed.
+a normal machine. No migration is committed to the repo — the `start.sh` /
+`start.command` / `start.bat` scripts run `prisma migrate dev --name init` on
+first launch, which generates and applies the correct SQLite migration using
+the user's own working Prisma CLI, sidestepping the sandbox-only binary
+download issue entirely.

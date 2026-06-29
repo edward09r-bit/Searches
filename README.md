@@ -1,36 +1,42 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Business Acquisition Intelligence
 
-## Getting Started
+Paste a business-for-sale listing in, get a financially-grounded, scored
+acquisition memo out: SBA debt-service math, federal/CA tax modeling, an
+8-factor weighted score, and a dashboard to track everything you're
+evaluating.
 
-First, run the development server:
+## Running it (one click)
+
+1. **Install [Node.js](https://nodejs.org)** if you don't already have it (LTS version).
+2. **Download this repo** and unzip it (or `git clone` it).
+3. **Double-click the start script for your OS:**
+   - macOS: `start.command`
+   - Windows: `start.bat`
+   - Linux: `start.sh` (run `./start.sh` from a terminal, or double-click if your file manager runs shell scripts)
+4. **First run only:** the script creates a `.env` file and stops so you can add your Anthropic API key. Open `.env`, set `ANTHROPIC_API_KEY="sk-ant-..."`, then run the start script again.
+
+That's it — no Docker, no database server to install, no terminal commands to type. The script installs dependencies, sets up a local SQLite database (a single file, no server), seeds it with 2025 tax brackets and default settings, and opens the app at [http://localhost:3000](http://localhost:3000).
+
+To stop the app, close the terminal window the script opened (or press `Ctrl+C` in it).
+
+## Manual setup (if you'd rather run it by hand)
 
 ```bash
+npm install
+cp .env.example .env   # then add your ANTHROPIC_API_KEY
+npx prisma migrate dev --name init
+npx prisma db seed
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Other commands
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- `npm test` — runs the unit test suite (financial engine, tax math, scoring, dedupe)
+- `npm run lint` — ESLint
+- `npm run build` / `npm start` — production build and run
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## More detail
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+See `docs/assumptions.md` for every default this app uses (tax brackets, SBA
+terms, scoring weights, the S-corp tax modeling assumption) — all editable in
+the `Settings` table without touching code.

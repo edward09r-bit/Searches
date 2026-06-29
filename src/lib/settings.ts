@@ -1,5 +1,9 @@
 import { prisma } from "./prisma";
-import type { Settings } from "@prisma/client";
+import type { Settings as PrismaSettings } from "@prisma/client";
+
+export type Settings = Omit<PrismaSettings, "preferredIndustries"> & {
+  preferredIndustries: string[];
+};
 
 // Seed data guarantees the singleton row exists, so a miss here means the
 // DB was never seeded — surfacing that loudly beats silently falling back
@@ -9,7 +13,7 @@ export async function getSettings(): Promise<Settings> {
   if (!settings) {
     throw new Error("Settings singleton row is missing — run `prisma db seed` before using the app.");
   }
-  return settings;
+  return { ...settings, preferredIndustries: settings.preferredIndustries as string[] };
 }
 
 export function settingsToScoringWeights(settings: Settings) {
